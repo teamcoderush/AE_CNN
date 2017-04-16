@@ -6,36 +6,40 @@ import os
 import time
 import datetime
 import data_helpers
-from ae_cnn import TextCNN
+from ae_cnn import AECNN
 from tensorflow.contrib import learn
 
 # Parameters
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("train_data_file", "./data/restaurant.txt", "Data source for the Reviews.")
 tf.flags.DEFINE_string("label_data_file", "./data/labels.txt", "Data source for the labels.")
+tf.flags.DEFINE_string("multilabel_train_data", "data/train_data.csv", "Train Data source for the Reviews.")
+tf.flags.DEFINE_string("multilabel_test_data", "data/test_data.csv", "Test Data source for the Reviews.")
+
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 48, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "2,3,4,5,6", "Comma-separated filter sizes (default: '3,4,5')")
+tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
-tf.flags.DEFINE_float("dropout_keep_prob", 0.4, "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
+tf.flags.DEFINE_float("dropout_keep_prob", 0.9, "Dropout keep probability (default: 0.5)")
+tf.flags.DEFINE_float("l2_reg_lambda", 0.01, "L2 regularization lambda (default: 0.0)")
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
+
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
@@ -47,27 +51,24 @@ print("")
 
 # Load data
 print("Loading data...")
-x_text, y = data_helpers.load_data_and_labels(FLAGS.train_data_file, FLAGS.label_data_file)
+x_text, y = data_helpers.load_data_multilabel(FLAGS.multilabel_train_data)
+x_dev, y_dev = data_helpers.load_data_multilabel(FLAGS.multilabel_test_data)
+
+train_set_length = len(x_text)
+x_text = x_text + x_dev
 
 # Build vocabulary
 max_document_length = max([len(x.split(" ")) for x in x_text])
 vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
 x = np.array(list(vocab_processor.fit_transform(x_text)))
 
+x, x_dev = x[:train_set_length], x[train_set_length:]
+
 # Randomly shuffle data
 np.random.seed(10)
 shuffle_indices = np.random.permutation(np.arange(len(y)))
-x_shuffled = x[shuffle_indices]
-y_shuffled = y[shuffle_indices]
+x_train , y_train = x[shuffle_indices], y[shuffle_indices]
 
-# # Split train/test set
-# dev_sample_index = -1 * int(FLAGS.dev_sample_percentage * float(len(y)))
-# x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
-# y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
-# print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
-# print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
-
-x_train , y_train = x_shuffled, y_shuffled
 
 # Training
 # ==================================================
@@ -78,7 +79,7 @@ with tf.Graph().as_default():
       log_device_placement=FLAGS.log_device_placement)
     sess = tf.Session(config=session_conf)
     with sess.as_default():
-        cnn = TextCNN(
+        cnn = AECNN(
             sequence_length=x_train.shape[1],
             num_classes=y_train.shape[1],
             vocab_size=len(vocab_processor.vocabulary_),
@@ -160,11 +161,13 @@ with tf.Graph().as_default():
               cnn.input_y: y_batch,
               cnn.dropout_keep_prob: 1.0
             }
-            step, summaries, loss, accuracy = sess.run(
-                [global_step, dev_summary_op, cnn.loss, cnn.accuracy],
+            step, summaries, loss, accuracy, scores, predictions = sess.run(
+                [global_step, dev_summary_op, cnn.loss, cnn.accuracy, cnn.scores, cnn.predictions],
                 feed_dict)
             time_str = datetime.datetime.now().isoformat()
             print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
+            print(scores.tolist())
+            print(predictions.tolist())
             if writer:
                 writer.add_summary(summaries, step)
 
@@ -176,10 +179,10 @@ with tf.Graph().as_default():
             x_batch, y_batch = zip(*batch)
             train_step(x_batch, y_batch)
             current_step = tf.train.global_step(sess, global_step)
-            # if current_step % FLAGS.evaluate_every == 0:
-            #     print("\nEvaluation:")
-            #     dev_step(x_dev, y_dev, writer=dev_summary_writer)
-            #     print("")
+            if current_step % FLAGS.evaluate_every == 0:
+                print("\nEvaluation:")
+                dev_step(x_dev, y_dev, writer=dev_summary_writer)
+                print("")
             if current_step % FLAGS.checkpoint_every == 0:
                 path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                 print("Saved model checkpoint to {}\n".format(path))

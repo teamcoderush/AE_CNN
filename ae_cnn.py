@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-class TextCNN(object):
+class AECNN(object):
 
     def __init__(
       self, sequence_length, num_classes, vocab_size,
@@ -67,9 +67,12 @@ class TextCNN(object):
             l2_loss += tf.nn.l2_loss(b)
             self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
             self.predictions = tf.argmax(self.scores, 1, name="predictions")
+            # threshold = tf.constant(5 , dtype=tf.float32)
+            # self.predictions = tf.greater_equal(self.scores, threshold)
 
         # CalculateMean cross-entropy loss
         with tf.name_scope("loss"):
+            # losses = self.input_y*tf.log(tf.nn.sigmoid(self.scores)) + (1-self.input_y) * tf.log(1-tf.nn.sigmoid(self.scores))
             losses = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
 

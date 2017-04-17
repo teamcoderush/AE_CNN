@@ -1,188 +1,120 @@
-#! /usr/bin/env python
-
-import tensorflow as tf
 import numpy as np
+import data_helpers
 import os
 import time
-import datetime
-import data_helpers
-from ae_cnn import AECNN
-from tensorflow.contrib import learn
+from w2v import train_word2vec
 
-# Parameters
-# ==================================================
+from keras.models import Model
+from keras.layers import Dense, Dropout, Embedding, Flatten, Input, Convolution1D, MaxPooling1D
+from keras.layers.merge import Concatenate
+from keras.preprocessing import sequence
 
-# Data loading params
-tf.flags.DEFINE_string("train_data_file", "./data/restaurant.txt", "Data source for the Reviews.")
-tf.flags.DEFINE_string("label_data_file", "./data/labels.txt", "Data source for the labels.")
-tf.flags.DEFINE_string("multilabel_train_data", "data/train_data.csv", "Train Data source for the Reviews.")
-tf.flags.DEFINE_string("multilabel_test_data", "data/test_data.csv", "Test Data source for the Reviews.")
+np.random.seed(2)
 
+# ---------------------- Parameters section -------------------
+model_type = "CNN-rand"  # CNN-rand|CNN-non-static|CNN-static
 
 # Model Hyperparameters
-tf.flags.DEFINE_integer("embedding_dim", 48, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
-tf.flags.DEFINE_float("dropout_keep_prob", 0.9, "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.01, "L2 regularization lambda (default: 0.0)")
+embedding_dim = 50
+filter_sizes = [5]
+num_filters = 300
+dropout_prob = (0.5, 0.8)
+hidden_dims = 100
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
-tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+batch_size = 64
+num_epochs = 50
+val_split = 0.2
 
-# Misc Parameters
-tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
-tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
+# Prepossessing parameters
+sequence_length = 400
+max_words = 5000
 
-FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags()
+# Word2Vec parameters (see train_word2vec)
+min_word_count = 1
+context = 10
 
-print("\nParameters:")
-for attr, value in sorted(FLAGS.__flags.items()):
-    print("{}={}".format(attr.upper(), value))
-print("")
-
+# Data path
+train_data_path =  "data/train_data.csv"
+test_data_path =  "data/test_data.csv"
 
 # Data Preparation
 # ==================================================
-
 # Load data
 print("Loading data...")
-x_text, y = data_helpers.load_data_multilabel(FLAGS.multilabel_train_data)
-x_dev, y_dev = data_helpers.load_data_multilabel(FLAGS.multilabel_test_data)
+x_train, y_train, vocabulary, vocabulary_inv = data_helpers.load_data(train_data_path)
 
-train_set_length = len(x_text)
-x_text = x_text + x_dev
+x_train = sequence.pad_sequences(x_train, maxlen=sequence_length, padding="post", truncating="post")
+print("x_train shape:", x_train.shape)
 
-# Build vocabulary
-max_document_length = max([len(x.split(" ")) for x in x_text])
-vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-x = np.array(list(vocab_processor.fit_transform(x_text)))
+if model_type == 'CNN-non-static' or model_type == 'CNN-static':
+    embedding_weights = train_word2vec(x_train, vocabulary_inv, num_features=embedding_dim,
+                                       min_word_count=min_word_count,
+                                       context=context)
+    if model_type == 'CNN-static':
+        x_train = embedding_weights[0][x_train]
+elif model_type == 'CNN-rand':
+    embedding_weights = None
+else:
+    raise ValueError('Unknown model variation')
 
-x, x_dev = x[:train_set_length], x[train_set_length:]
+# Shuffle data
+shuffle_indices = np.random.permutation(np.arange(len(y_train)))
+x_shuffled = x_train[shuffle_indices]
+y_shuffled = y_train[shuffle_indices]
 
-# Randomly shuffle data
-np.random.seed(10)
-shuffle_indices = np.random.permutation(np.arange(len(y)))
-x_train , y_train = x[shuffle_indices], y[shuffle_indices]
+print("Vocabulary Size: {:d}".format(len(vocabulary)))
 
-
-# Training
+# Building model
 # ==================================================
+#
+# graph subnet with one input and one output,
+# convolutional layers concateneted in parallel
+input_shape = (sequence_length, embedding_dim) if model_type == "CNN-static" else (sequence_length,)
+model_input = Input(shape=input_shape, name="model-input")
 
-with tf.Graph().as_default():
-    session_conf = tf.ConfigProto(
-      allow_soft_placement=FLAGS.allow_soft_placement,
-      log_device_placement=FLAGS.log_device_placement)
-    sess = tf.Session(config=session_conf)
-    with sess.as_default():
-        cnn = AECNN(
-            sequence_length=x_train.shape[1],
-            num_classes=y_train.shape[1],
-            vocab_size=len(vocab_processor.vocabulary_),
-            embedding_size=FLAGS.embedding_dim,
-            filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
-            num_filters=FLAGS.num_filters,
-            l2_reg_lambda=FLAGS.l2_reg_lambda)
+# Static model do not have embedding layer
+if model_type == "CNN-static":
+    z = Dropout(dropout_prob[0], name="dropout-1")(model_input)
+else:
+    z = Embedding(len(vocabulary_inv), embedding_dim, input_length=sequence_length, name="embedding")(model_input)
+    z = Dropout(dropout_prob[0], name="dropout-2")(z)
 
-        # Define Training procedure
-        global_step = tf.Variable(0, name="global_step", trainable=False)
-        optimizer = tf.train.AdamOptimizer(1e-3)
-        grads_and_vars = optimizer.compute_gradients(cnn.loss)
-        train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+# Convolutional block
+conv_blocks = []
+for sz in filter_sizes:
+    conv = Convolution1D(filters=num_filters,
+                         kernel_size=sz,
+                         padding="valid",
+                         activation="relu",
+                         strides=1,
+                         name="conv" + str(sz))(z)
+    conv = MaxPooling1D(pool_size=2, name="pool" + str(sz))(conv)
+    conv = Flatten()(conv)
+    conv_blocks.append(conv)
+z = Concatenate()(conv_blocks) if len(conv_blocks) > 1 else conv_blocks[0]
 
-        # Keep track of gradient values and sparsity (optional)
-        grad_summaries = []
-        for g, v in grads_and_vars:
-            if g is not None:
-                grad_hist_summary = tf.summary.histogram("{}/grad/hist".format(v.name), g)
-                sparsity_summary = tf.summary.scalar("{}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
-                grad_summaries.append(grad_hist_summary)
-                grad_summaries.append(sparsity_summary)
-        grad_summaries_merged = tf.summary.merge(grad_summaries)
+z = Dropout(dropout_prob[1], name="dropout-3")(z)
+z = Dense(hidden_dims, activation="relu", name="relu")(z)
+model_output = Dense(13, activation="softmax", name="softmax")(z)
 
-        # Output directory for models and summaries
-        timestamp = str(int(time.time()))
-        out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
-        print("Writing to {}\n".format(out_dir))
+model = Model(model_input, model_output)
+model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy", "categorical_accuracy"])
 
-        # Summaries for loss and accuracy
-        loss_summary = tf.summary.scalar("loss", cnn.loss)
-        acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
+# Initialize weights with word2vec
+if model_type == "CNN-non-static":
+    embedding_layer = model.get_layer("embedding")
+    embedding_layer.set_weights(embedding_weights)
 
-        # Train Summaries
-        train_summary_op = tf.summary.merge([loss_summary, acc_summary, grad_summaries_merged])
-        train_summary_dir = os.path.join(out_dir, "summaries", "train")
-        train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
+# Training model
+# ==================================================
+model.fit(x_shuffled, y_shuffled, batch_size=batch_size,
+          epochs=num_epochs, validation_split=val_split, verbose=1)
 
-        # Dev summaries
-        dev_summary_op = tf.summary.merge([loss_summary, acc_summary])
-        dev_summary_dir = os.path.join(out_dir, "summaries", "dev")
-        dev_summary_writer = tf.summary.FileWriter(dev_summary_dir, sess.graph)
-
-        # Checkpoint directory. Tensorflow assumes this directory already exists so we need to create it
-        checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
-        checkpoint_prefix = os.path.join(checkpoint_dir, "model")
-        if not os.path.exists(checkpoint_dir):
-            os.makedirs(checkpoint_dir)
-        saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
-
-        # Write vocabulary
-        vocab_processor.save(os.path.join(out_dir, "vocab"))
-
-        # Initialize all variables
-        sess.run(tf.global_variables_initializer())
-
-        def train_step(x_batch, y_batch):
-            """
-            A single training step
-            """
-            feed_dict = {
-              cnn.input_x: x_batch,
-              cnn.input_y: y_batch,
-              cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
-            }
-            _, step, summaries, loss, accuracy = sess.run(
-                [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy],
-                feed_dict)
-            time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-            train_summary_writer.add_summary(summaries, step)
-
-        def dev_step(x_batch, y_batch, writer=None):
-            """
-            Evaluates model on a dev set
-            """
-            feed_dict = {
-              cnn.input_x: x_batch,
-              cnn.input_y: y_batch,
-              cnn.dropout_keep_prob: 1.0
-            }
-            step, summaries, loss, accuracy, scores, predictions = sess.run(
-                [global_step, dev_summary_op, cnn.loss, cnn.accuracy, cnn.scores, cnn.predictions],
-                feed_dict)
-            time_str = datetime.datetime.now().isoformat()
-            print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-            print(scores.tolist())
-            print(predictions.tolist())
-            if writer:
-                writer.add_summary(summaries, step)
-
-        # Generate batches
-        batches = data_helpers.batch_iter(
-            list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
-        # Training loop. For each batch...
-        for batch in batches:
-            x_batch, y_batch = zip(*batch)
-            train_step(x_batch, y_batch)
-            current_step = tf.train.global_step(sess, global_step)
-            if current_step % FLAGS.evaluate_every == 0:
-                print("\nEvaluation:")
-                dev_step(x_dev, y_dev, writer=dev_summary_writer)
-                print("")
-            if current_step % FLAGS.checkpoint_every == 0:
-                path = saver.save(sess, checkpoint_prefix, global_step=current_step)
-                print("Saved model checkpoint to {}\n".format(path))
+# Output directory for models and summaries
+timestamp = str(int(time.time()))
+out_dir = os.path.abspath(os.path.join(os.path.curdir, "models", timestamp))
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
+print("Writing to {}\n".format(out_dir))
+model.save(out_dir + "\model.h5")

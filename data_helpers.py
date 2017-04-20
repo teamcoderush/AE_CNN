@@ -52,28 +52,29 @@ def load_data_and_labels():
     return [x_text, y]
 
 
-def pad_sentences(sentences, padding_word="<PAD/>"):
+def pad_sentences(sentences, padding_word="<PAD/>", max_length = None):
     """
     Pads all sentences to the same length. The length is defined by the longest sentence.
     Returns padded sentences.
     """
-    sequence_length = max(len(x) for x in sentences)
+    if max_length == None:
+        max_length = max(len(x) for x in sentences)
     padded_sentences = []
     for i in range(len(sentences)):
         sentence = sentences[i]
-        num_padding = sequence_length - len(sentence)
+        num_padding = max_length - len(sentence)
         new_sentence = sentence + [padding_word] * num_padding
         padded_sentences.append(new_sentence)
     return padded_sentences
 
 
-def pad_sentence(sentence, padding_word="<PAD/>"):
+def pad_sentence(sentence, padding_word="<PAD/>", length=45):
     """
-    Pads all sentences to the same length. The length is defined by the longest sentence.
+    Pads all sentences to the same length. The length is given by the user(default=45).
     Returns padded sentences.
     """
     padded_sentences = []
-    num_padding = 45 - len(sentence)
+    num_padding = length - len(sentence)
     new_sentence = sentence + [padding_word] * num_padding
     padded_sentences.append(new_sentence)
     return padded_sentences
@@ -110,18 +111,30 @@ def build_input_data_for_sentences(sentences, vocabulary):
     return x
 
 
-def load_data(data_path):
+def load_data(train_data_path, test_data_path=None):
     """
     Loads and preprocessed data for the MR dataset.
     Returns input vectors, labels, vocabulary, and inverse vocabulary.
     """
-    # Load and preprocess data
-    sentences, labels = load_data_multilabel(data_path)
-    # sentences, labels = load_data_and_labels()
-    sentences_padded = pad_sentences(sentences)
-    vocabulary, vocabulary_inv = build_vocab(sentences_padded)
-    x, y = build_input_data(sentences_padded, labels, vocabulary)
-    return [x, y, vocabulary, vocabulary_inv]
+    if test_data_path==None:
+        # Load and preprocess data
+        sentences, labels = load_data_multilabel(train_data_path)
+        # sentences, labels = load_data_and_labels()
+        sentences_padded = pad_sentences(sentences) #required to emmit 0 as the pad key word
+        vocabulary, vocabulary_inv = build_vocab(sentences_padded)
+        x, y = build_input_data(sentences, labels, vocabulary)
+        return [x, y, vocabulary, vocabulary_inv]
+    else:
+        # Load and preprocess data
+        train_x, train_y = load_data_multilabel(train_data_path)
+        test_x, test_y = load_data_multilabel(test_data_path)
+        train_x_padded = pad_sentences(train_x) #required to emmit 0 as the pad key word
+        test_x_padded = pad_sentences(test_x) #required to emmit 0 as the pad key word
+
+        vocabulary, vocabulary_inv = build_vocab(train_x_padded+test_x_padded)
+        train_x, train_y = build_input_data(train_x, train_y, vocabulary)
+        test_x, test_y = build_input_data(test_x, test_y, vocabulary)
+        return [train_x, train_y, test_x, test_y, vocabulary, vocabulary_inv]
 
 
 def batch_iter(data, batch_size, num_epochs):
@@ -141,10 +154,10 @@ def batch_iter(data, batch_size, num_epochs):
             yield shuffled_data[start_index:end_index]
 
 
-def my_get_input_sentence():
-    raw = input("input a news headline: ")
+def my_get_input_sentence(raw, length):
+    # raw = input("input a news headline: ")
     raw_comment_cut = raw.split()
-    sentence_padded = pad_sentence(raw_comment_cut)
+    sentence_padded = pad_sentence(raw_comment_cut, length=length)
     vocabulary, vocabulary_inv = build_vocab(sentence_padded)
     x = build_input_data_for_sentences(sentence_padded, vocabulary)
     return x
@@ -170,16 +183,16 @@ def load_data_multilabel(data_path):
             print(text[i], index[i], i)
             raise ValueError('The order of reviews and labels is not correct')
 
-    cleaned_text = [clean_str(sent) for sent in text]
+    cleaned_text = [clean_reviews(sent) for sent in text]
     labels = labels.tolist()
 
     empty_reviews = [i for i, x in enumerate(cleaned_text) if x == ""]
 
     for i in empty_reviews:
-        if labels[i] != "NO#ASPECT":
-            cleaned_text[i] = clean_reviews(text[i], remove_stop_words=False)
-        else:
-            cleaned_text[i] = 'empty'
+        # if labels[i] != "NO#ASPECT":
+        cleaned_text[i] = clean_reviews(text[i], remove_stop_words=False)
+        # else:
+        #     cleaned_text[i] = 'empty'
 
     vec_dic = {
         'RESTAURANT#GENERAL': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -237,3 +250,5 @@ def clean_reviews(text, remove_stop_words=True):
     # 5. Join the words back into one string separated by space,
     # and return the result.
     return (" ".join(words)).strip()
+
+

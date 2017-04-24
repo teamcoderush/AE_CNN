@@ -4,7 +4,7 @@ import keras
 import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 
-from w2v_features_rnn import gensim_w2v
+from rnn_architecture import gensim_w2v
 
 
 def eval_rnn(model_path, test_data_path, sequence_length, embedding_dim, context, min_word_count):

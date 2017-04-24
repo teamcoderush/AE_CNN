@@ -10,7 +10,7 @@ from keras.layers import LSTM
 # from keras.layers.merge import Concatenate
 from keras.models import Model
 
-from w2v_features_rnn import gensim_w2v, eval
+from rnn_architecture import gensim_w2v, eval
 
 embedding_dim = 50
 sequence_length = 80

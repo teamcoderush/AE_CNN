@@ -1,14 +1,15 @@
-import numpy as np
-import data_helpers
 import os
 import time
-from w2v import train_word2vec
 
+import numpy as np
 from keras import regularizers
-from keras.models import Model
 from keras.layers import Dense, Dropout, Embedding, Flatten, Input, Convolution1D, MaxPooling1D
 from keras.layers.merge import Concatenate
+from keras.models import Model
 from keras.preprocessing import sequence
+
+import data_helpers
+from base.w2v import train_word2vec
 
 np.random.seed(2)
 

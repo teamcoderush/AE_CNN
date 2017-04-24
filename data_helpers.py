@@ -2,8 +2,13 @@ import numpy as np
 import re
 import itertools
 import pandas as pd
+import  nltk
 from collections import Counter
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet
+from nltk.stem.lancaster import LancasterStemmer
+from nltk.stem import WordNetLemmatizer
+
 
 """
 Original taken from https://github.com/dennybritz/cnn-text-classification-tf
@@ -77,6 +82,22 @@ def pad_sentence(sentence, padding_word="<PAD/>", length=45):
     num_padding = length - len(sentence)
     new_sentence = sentence + [padding_word] * num_padding
     padded_sentences.append(new_sentence)
+    return padded_sentences
+
+
+def pad_sentences_repeated(sentences, max_length = None):
+    """
+    Pads all sentences to the same length. The length is defined by the longest sentence.
+    Returns padded sentences.
+    """
+    if max_length == None:
+        max_length = max(len(x) for x in sentences)
+    padded_sentences = []
+    for i in range(len(sentences)):
+        sentence = sentences[i]
+        padding = (max_length//len(sentence)) + 1
+        new_sentence = (sentence * padding)[:max_length]
+        padded_sentences.append(new_sentence)
     return padded_sentences
 
 
@@ -227,7 +248,6 @@ def load_data_multilabel(data_path):
     cleaned_text = [s.split(" ") for s in cleaned_text]
     return [cleaned_text, vec_labels]
 
-
 def clean_reviews(text, remove_stop_words=True):
     # Function to convert a raw review to a string of words
     # The input is a single string (a raw movie review), and
@@ -245,10 +265,32 @@ def clean_reviews(text, remove_stop_words=True):
     #
     # 4. Remove stop words
     if remove_stop_words:
-        meaningful_words = [w for w in words if not w in stops]
-        return (" ".join(meaningful_words)).strip()
-    # 5. Join the words back into one string separated by space,
+        words = [w for w in words if not w in stops]
+
+    # 5. Stemming the words
+    # stemmer = LancasterStemmer()
+    # words = [stemmer.stem(w) for w in words]
+
+    # 6. Lemmatize the words
+    words = nltk.pos_tag(words)
+    lemmatizer = WordNetLemmatizer()
+    words = [lemmatizer.lemmatize(w[0], get_wordnet_pos(w[1])) for w in words]
+
+    # 7. Join the words back into one string separated by space,
     # and return the result.
     return (" ".join(words)).strip()
 
+
+def get_wordnet_pos(treebank_tag):
+
+    if treebank_tag.startswith('J'):
+        return wordnet.ADJ
+    elif treebank_tag.startswith('V'):
+        return wordnet.VERB
+    elif treebank_tag.startswith('N'):
+        return wordnet.NOUN
+    elif treebank_tag.startswith('R'):
+        return wordnet.ADV
+    else:
+        return wordnet.NOUN
 

@@ -8,7 +8,7 @@ from keras.layers.merge import Concatenate, Maximum, Add, Average
 from keras.models import Model
 from keras import optimizers
 
-from cnn_rnn_architecture import eval, gensim_w2v
+from w2v_features import eval, gensim_w2v
 
 np.random.seed(2)
 
@@ -68,7 +68,7 @@ def initiate_training(train_data_path, test_data_path,
 
     z = Concatenate()(conv_blocks) if len(conv_blocks) > 1 else conv_blocks[0]
 
-    z = LSTM(100, dropout=0.1, recurrent_dropout=0.2, go_backwards=False)(z)
+    # z = LSTM(100, dropout=0.1, recurrent_dropout=0.2, go_backwards=False)(z)
 
     z = Dropout(dropout_prob[1], name="dropout-3")(z)
     z = Dense(hidden_dims, activation="relu", name="relu")(z)

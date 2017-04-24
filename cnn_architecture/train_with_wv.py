@@ -8,7 +8,7 @@ from keras.layers.merge import Concatenate, Maximum, Add, Average
 from keras.models import Model
 from keras import optimizers
 
-from w2v_features import eval, gensim_w2v
+from cnn_rnn_architecture import eval, gensim_w2v
 
 np.random.seed(2)
 

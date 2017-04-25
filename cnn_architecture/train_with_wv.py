@@ -3,12 +3,12 @@ import os
 import time
 
 import numpy as np
-from keras.layers import LSTM, Dense, Dropout, Flatten, Input, Convolution1D, MaxPooling1D
+from keras.layers import Dense, Flatten, Dropout, Input, Convolution1D, MaxPooling1D
 from keras.layers.merge import Concatenate, Maximum, Add, Average
 from keras.models import Model
 from keras import optimizers
 
-from w2v_features import eval, gensim_w2v
+from cnn_architecture import eval, gensim_w2v
 
 np.random.seed(2)
 
@@ -63,7 +63,7 @@ def initiate_training(train_data_path, test_data_path,
                              use_bias=True,
                              name="conv" + str(sz))(z)
         conv = MaxPooling1D(pool_size=sequence_length, padding="same", name="pool" + str(sz))(conv)
-        # conv = Flatten()(conv)
+        conv = Flatten()(conv)
         conv_blocks.append(conv)
 
     z = Concatenate()(conv_blocks) if len(conv_blocks) > 1 else conv_blocks[0]

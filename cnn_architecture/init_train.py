@@ -1,6 +1,6 @@
 import logging
 
-from cnn_rnn_architecture import train_with_wv as cnn
+from cnn_architecture import train_with_wv as cnn
 
 LOG_FILENAME = 'train.log'
 logging.basicConfig(level=logging.INFO)
@@ -14,7 +14,8 @@ logging.info("\n\n\n==========================================================\n
 # cnn.initiate_training(train_data_path, test_data_path, sequence_length=100, num_epochs=20, embedding_dim=50, context=25)
 
 cnn.initiate_training(train_data_path, test_data_path, sequence_length=100, num_epochs=10, embedding_dim=100,
-                      context=20)
+                      context=17)
+logging.info("\n\n\n==========================================================\n")
 
 # cnn.initiate_training(train_data_path, test_data_path, sequence_length=100, num_epochs=20, embedding_dim=100, context=25)
 
@@ -22,15 +23,14 @@ cnn.initiate_training(train_data_path, test_data_path,
                       sequence_length=100,
                       embedding_dim=50,
                       filter_sizes=[2, 3, 4, 5, 6, 7, 8],
-                      num_filters=100,
-                      dropout_prob=[0.6, 0.7],
+                      num_filters=200,
+                      dropout_prob=[0.5, 0.7],
                       hidden_dims=400,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
-logging.info("\n\n\n==========================================================\n")
 
 logging.info("\n\n\n==========================================================\n")
 cnn.initiate_training(train_data_path, test_data_path,
@@ -43,7 +43,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 cnn.initiate_training(train_data_path, test_data_path,
@@ -56,7 +56,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -70,7 +70,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -84,7 +84,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -98,7 +98,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -112,7 +112,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 cnn.initiate_training(train_data_path, test_data_path,
@@ -125,7 +125,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 cnn.initiate_training(train_data_path, test_data_path,
@@ -138,7 +138,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -152,7 +152,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -166,7 +166,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -180,7 +180,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 
@@ -194,7 +194,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 cnn.initiate_training(train_data_path, test_data_path,
@@ -207,7 +207,7 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")
 cnn.initiate_training(train_data_path, test_data_path,
@@ -220,6 +220,6 @@ cnn.initiate_training(train_data_path, test_data_path,
                       batch_size=50,
                       num_epochs=15,
                       min_word_count=1,
-                      context=20)
+                      context=17)
 
 logging.info("\n\n\n==========================================================\n")

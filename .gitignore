@@ -90,3 +90,6 @@ ENV/
 
 # Keras Models
 .h5
+
+# idea
+.idea/

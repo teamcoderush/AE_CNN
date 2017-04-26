@@ -28,14 +28,14 @@ def initiate_training(train_data_path, test_data_path,
     # Data Preparation
     # ==================================================
     # Load data
-    logging.debug("Loading data...")
+    print("Loading data...")
 
     x_train, y_train, x_test, y_test = gensim_w2v.load_data_for_cnn(train_data_path, test_data_path,
                                                                     max_sequence_length=sequence_length,
                                                                     size=embedding_dim,
                                                                     window=context,
                                                                     min_count=min_word_count)
-    logging.debug("x_train shape:", x_train.shape)
+    print("x_train shape:", x_train.shape)
 
     # Shuffle data
     shuffle_indices = np.random.permutation(np.arange(len(y_train)))
@@ -89,11 +89,11 @@ def initiate_training(train_data_path, test_data_path,
     out_dir = os.path.abspath(os.path.join(os.path.curdir, "models", timestamp))
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    logging.debug("Writing to {}\n".format(out_dir))
+    print("Writing to {}\n".format(out_dir))
     model_loc = out_dir + "\\model.h5"
     model.save(model_loc)
 
-    logging.info(
+    print(
         "Train data path : {0}\nTest data path : {1}\n"
         "Sequence Length {2}\nEmbedding Dimensions : {3}\nFilter Sizes : {4}\nNo of Filters : {5}\nDropout Porbabilities : {6}\nHidden Dimensions :{7}\n"
         "Batch size : {8}\nNumber of epochs : {9}\nMin word count : {10}\ncontext :{11}\n"

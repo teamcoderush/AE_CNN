@@ -196,6 +196,8 @@ def load_data_multilabel(data_path):
     text = sorted(text)
 
     labels = df.groupby('text')['category'].apply(list)
+
+
     index = labels.index.tolist()
 
     # check for mismatch in review order
@@ -204,7 +206,7 @@ def load_data_multilabel(data_path):
             print(text[i], index[i], i)
             raise ValueError('The order of reviews and labels is not correct')
 
-    cleaned_text = [clean_reviews(sent) for sent in text]
+    cleaned_text = [clean_reviews(sent,remove_stop_words=False) for sent in text]
     labels = labels.tolist()
 
     empty_reviews = [i for i, x in enumerate(cleaned_text) if x == ""]
@@ -266,6 +268,7 @@ def clean_reviews(text, remove_stop_words=True):
     # 4. Remove stop words
     if remove_stop_words:
         words = [w for w in words if not w in stops]
+
 
     # 5. Stemming the words
     # stemmer = LancasterStemmer()

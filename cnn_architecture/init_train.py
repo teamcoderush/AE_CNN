@@ -21,7 +21,7 @@ logging.info("\n\n\n==========================================================\n
 
 cnn.initiate_training(train_data_path, test_data_path,
                       sequence_length=100,
-                      embedding_dim=200,
+                      embedding_dim=50,
                       filter_sizes=[3,5],
                       num_filters=300,
                       dropout_prob=[0.5, 0.7],
